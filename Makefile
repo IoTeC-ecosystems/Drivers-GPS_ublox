@@ -19,8 +19,12 @@ USEMODULE += printf_float
 endif
 
 ifdef TEST
+CFLAGS += -DTEST
+INCLUDES += -I$(CURDIR)/tests/include
 USEMODULE += tests
 EXTERNAL_MODULE_DIRS += $(CURDIR)
 endif
+
+CFLAGS += -Wno-error=unused-variable
 
 include $(RIOTBASE)/Makefile.include
