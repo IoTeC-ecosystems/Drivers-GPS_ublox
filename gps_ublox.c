@@ -1,12 +1,19 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "gps_ublox.h"
 
-static void gps_cb(void *arg, uint8_t data)
+void gps_cb(void *arg, uint8_t data)
 {
     (void) arg;
-    // Add datat to the ring buffer
+    if (data == '\n') return;
+    // Add data to the ring buffer
     tsrb_add_one(&_tsrb, data);
+    if (data == '\r') {
+        msg_t _msg;
+        _msg.content.value = (uint32_t)data;
+        msg_send(&_msg, main_pid);
+    }
 }
 
 void checksum(uint8_t *packet, uint32_t n)
@@ -22,11 +29,21 @@ void checksum(uint8_t *packet, uint32_t n)
 
 bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
 {
-    (void) rate;
+    // Clear buffer and variables
+    memset((void *)&_gll, 0, sizeof(_gll));
+    memset((void *)&_rmc, 0, sizeof(_rmc));
+    memset((void *)&_vtg, 0, sizeof(_vtg));
+    memset((void *)&_gga, 0, sizeof(_gga));
+
+    main_pid = thread_getpid();
     tsrb_clear(&_tsrb);
+    msg_init_queue(q, MSG_QUEUE_SIZE);
 
     _uart_dev = _dev;
-    uart_init(_uart_dev, baud, gps_cb, NULL);
+    int ret = uart_init(_uart_dev, baud, gps_cb, NULL);
+    if (ret < 0) {
+        return false;
+    }
 
     // Restore defaults
     // CFG-CFG
@@ -53,14 +70,14 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
 
     // Nav engine settings
     uint8_t cfg_nav5[] = {
-        0xb5, 0x62, 0x06, 0x24, 0x24, 0x00,
+        0xB5, 0x62, 0x06, 0x24, 0x24, 0x00,
         // payload
         0x07, 0x00,                 // mask
         0x02,                       // dynModel - static
         0x03,                       // Fix mode - auto
         0x00, 0x00, 0x00, 0x00,     // fixedAlt
         0x00, 0x00, 0x00, 0x00,     // fixedAltVar
-        0x14,                       // minElev - for satellite: 20° above horizon
+        0x0A,                       // minElev - for satellite: 10° above horizon
         0x00,
         0x00,
         0x00, 0x00,
@@ -98,5 +115,75 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
         uart_write(_uart_dev, cfg_msg, sizeof(cfg_msg));
     }
 
+    while (1) {
+        msg_t msg;
+        msg_receive(&msg);
+        uint8_t c = 0;
+        char sentence[MINMEA_MAX_SENTENCE_LENGTH];
+        int i = 0;
+        // Monitor module until the message
+        // $GPTXT,01,01,02,ANTSTATUS=OK*3B is received
+        while (c != '\r') {
+            c = tsrb_get_one(&_tsrb);
+            sentence[i++] = (char)c;
+        }
+        if (memcmp(sentence + 3, "TXT", 3) == 0) {
+            if (memcmp(sentence + 26, "OK", 2) == 0) {
+                break;
+            }
+        }
+    }
+
     return true;
+}
+
+bool parse_nmea_message(void)
+{
+    char line[MINMEA_MAX_SENTENCE_LENGTH];
+    // Read the tsrb buffer
+    msg_t msg;
+    if (msg_try_receive(&msg) == -1) {
+        return false;
+    }
+    int i = 0;
+    uint8_t c = 0;
+    while (c  != '\r') {
+        if (tsrb_avail(&_tsrb)) {
+            c = tsrb_get_one(&_tsrb);
+            line[i++] = (char)c;
+        }
+    }
+
+    for (int i = 0; i < MINMEA_MAX_SENTENCE_LENGTH; i++) {
+        if (line[i] == '\r') {
+            printf("\\r\n");
+            break;
+        } else {
+            printf("%c", line[i]);
+        }
+    }
+    enum minmea_sentence_id id = minmea_sentence_id(line, false);
+    if (id == MINMEA_INVALID) {
+        return false;
+    }
+    bool can_parse = true;
+    switch (id) {
+        case MINMEA_SENTENCE_GLL:
+            if (!minmea_parse_gll(&_gll, line)) can_parse = false;
+            break;
+        case MINMEA_SENTENCE_RMC:
+            if (!minmea_parse_rmc(&_rmc, line)) can_parse = false;
+            break;
+        case MINMEA_SENTENCE_VTG:
+            if (!minmea_parse_vtg(&_vtg, line)) can_parse = false;
+            break;
+        case MINMEA_SENTENCE_GGA:
+            if (!minmea_parse_gga(&_gga, line)) can_parse = false;
+            break;
+        default:
+            // Ignore any other sentence
+            break;
+    }
+
+    return can_parse;
 }

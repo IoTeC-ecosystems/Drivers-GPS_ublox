@@ -17,8 +17,10 @@ int main(void)
     init_gps_ublox(GPS_UART, GPS_BAUDRATE, 2000);
 
 #ifdef TEST
-    tests();
+    //tests();
 #endif
-    while(1) ;
+    while(1) {
+        parse_nmea_message();
+    }
     return 0;
 }

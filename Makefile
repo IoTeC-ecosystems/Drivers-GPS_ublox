@@ -25,6 +25,8 @@ USEMODULE += tests
 EXTERNAL_MODULE_DIRS += $(CURDIR)
 endif
 
+USEPKG += minmea
+
 CFLAGS += -Wno-error=unused-variable
 
 include $(RIOTBASE)/Makefile.include
