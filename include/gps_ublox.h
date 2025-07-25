@@ -9,6 +9,7 @@
  */
 
 #include <stdbool.h>
+#include <time.h>
 
 #include "board.h"
 #include "periph/uart.h"
@@ -37,5 +38,8 @@ static struct minmea_sentence_gga _gga;
 void gps_cb(void *arg, uint8_t data);
 bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate);
 bool parse_nmea_message(void);
+bool get_nmea_rmc_json(char *json);
+
+void clear_buffer(void);
 
 #endif      // GPS_UBLOX_H

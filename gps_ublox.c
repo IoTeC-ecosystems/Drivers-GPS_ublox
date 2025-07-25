@@ -3,13 +3,14 @@
 
 #include "gps_ublox.h"
 
+#define AUX_BUF_SIZE 124
+
 void gps_cb(void *arg, uint8_t data)
 {
     (void) arg;
-    if (data == '\n') return;
     // Add data to the ring buffer
     tsrb_add_one(&_tsrb, data);
-    if (data == '\r') {
+    if (data == '\n') {
         msg_t _msg;
         _msg.content.value = (uint32_t)data;
         msg_send(&_msg, main_pid);
@@ -34,6 +35,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     memset((void *)&_rmc, 0, sizeof(_rmc));
     memset((void *)&_vtg, 0, sizeof(_vtg));
     memset((void *)&_gga, 0, sizeof(_gga));
+    memset((void *)&buffer, 0, strlen((char *)buffer));
 
     main_pid = thread_getpid();
     tsrb_clear(&_tsrb);
@@ -56,6 +58,8 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     };
     checksum(cfg_cfg, sizeof(cfg_cfg));
     uart_write(_uart_dev, cfg_cfg, sizeof(cfg_cfg));
+    ztimer_sleep(ZTIMER_MSEC, 50);
+    msg_t msg;
 
     // CFG-RATE - set update rate
     uint8_t cfg_rate[] = {
@@ -67,6 +71,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     };
     checksum(cfg_rate, sizeof(cfg_rate));
     uart_write(_uart_dev, cfg_rate, sizeof(cfg_rate));
+    ztimer_sleep(ZTIMER_MSEC, 50);
 
     // Nav engine settings
     uint8_t cfg_nav5[] = {
@@ -93,6 +98,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     };
     checksum(cfg_nav5, sizeof(cfg_nav5));
     uart_write(_uart_dev, cfg_nav5, sizeof(cfg_nav5));
+    ztimer_sleep(ZTIMER_MSEC, 50);
 
     // Disable nmea messages
     uint8_t messages[][2] = {
@@ -113,11 +119,16 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
         }
         checksum(cfg_msg, sizeof(cfg_msg));
         uart_write(_uart_dev, cfg_msg, sizeof(cfg_msg));
+        ztimer_sleep(ZTIMER_MSEC, 50);
     }
 
+    //
+    return true;
+
     while (1) {
-        msg_t msg;
-        msg_receive(&msg);
+        if (msg_try_receive(&msg) == -1) {
+            continue;
+        }
         uint8_t c = 0;
         char sentence[MINMEA_MAX_SENTENCE_LENGTH];
         int i = 0;
@@ -129,6 +140,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
         }
         if (memcmp(sentence + 3, "TXT", 3) == 0) {
             if (memcmp(sentence + 26, "OK", 2) == 0) {
+                // OK received
                 break;
             }
         }
@@ -140,28 +152,19 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
 bool parse_nmea_message(void)
 {
     char line[MINMEA_MAX_SENTENCE_LENGTH];
+    memset(line, 0, MINMEA_MAX_SENTENCE_LENGTH);
     // Read the tsrb buffer
     msg_t msg;
     if (msg_try_receive(&msg) == -1) {
         return false;
     }
-    int i = 0;
+    unsigned int i = 0;
     uint8_t c = 0;
-    while (c  != '\r') {
-        if (tsrb_avail(&_tsrb)) {
-            c = tsrb_get_one(&_tsrb);
-            line[i++] = (char)c;
-        }
+    while (tsrb_avail(&_tsrb)) {
+        c = tsrb_get_one(&_tsrb);
+        line[i++] = (char)c;
     }
 
-    for (int i = 0; i < MINMEA_MAX_SENTENCE_LENGTH; i++) {
-        if (line[i] == '\r') {
-            printf("\\r\n");
-            break;
-        } else {
-            printf("%c", line[i]);
-        }
-    }
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
     if (id == MINMEA_INVALID) {
         return false;
@@ -186,4 +189,51 @@ bool parse_nmea_message(void)
     }
 
     return can_parse;
+}
+
+bool get_nmea_rmc_json(char *json)
+{
+    strcat(json, "{\n");
+
+    // Get datetime from rmc sentence
+    strcat(json, "\t\"datetime\": ");
+    struct tm tm;
+    int ret = minmea_getdatetime(&tm, &_rmc.date, &_rmc.time);
+    char buffer[AUX_BUF_SIZE];
+    memset(buffer, 0, AUX_BUF_SIZE);
+    // Datetime format: dd/mm/yyyy HH:mm
+    sprintf(buffer, "%02d/%02d/%4d %2d:%02d,\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_sec);
+    strcat(json, buffer);
+
+    // Get course
+    strcat(json, "\t\"course\": ");
+    memset(buffer, 0, AUX_BUF_SIZE);
+    sprintf(buffer, "%f,\n", minmea_tofloat(&_rmc.course));
+    strcat(json, buffer);
+
+    // Get latitude
+    strcat(json, "\t\"latitude\": ");
+    memset(buffer, 0, AUX_BUF_SIZE);
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_rmc.latitude));
+    strcat(json, buffer);
+
+    // Get longitude
+    strcat(json, "\t\"longitude\": ");
+    memset(buffer, 0, AUX_BUF_SIZE);
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_rmc.longitude));
+    strcat(json, buffer);
+
+    // Get speed
+    strcat(json, "\t\"speed\": ");
+    memset(buffer, 0, AUX_BUF_SIZE);
+    sprintf(buffer, "%f\n", minmea_tofloat(&_rmc.speed));
+    strcat(json, buffer);
+
+    strcat(json, "}");
+    return true;
+}
+
+void clear_buffer(void)
+{
+    tsrb_clear(&_tsrb);
 }
