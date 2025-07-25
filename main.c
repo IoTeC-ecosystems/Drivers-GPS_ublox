@@ -9,18 +9,19 @@
 #include "tests.h"
 #endif
 
-#define GPS_UART UART_DEV(2)
+#define GPS_UART UART_DEV(1)
 #define GPS_BAUDRATE 9600u
 
 int main(void)
 {
-    init_gps_ublox(GPS_UART, GPS_BAUDRATE, 2000);
-
 #ifdef TEST
-    //tests();
-#endif
+    tests();
+#else
+    printf("Initializing GPS.\n");
+    init_gps_ublox(GPS_UART, GPS_BAUDRATE, 2000);
     while(1) {
         parse_nmea_message();
     }
+#endif
     return 0;
 }
