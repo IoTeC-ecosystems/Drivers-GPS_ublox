@@ -151,8 +151,8 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
 
 bool parse_nmea_message(void)
 {
-    char line[MINMEA_MAX_SENTENCE_LENGTH];
-    memset(line, 0, MINMEA_MAX_SENTENCE_LENGTH);
+    char line[2 * MINMEA_MAX_SENTENCE_LENGTH];
+    memset(line, 0, 2 * MINMEA_MAX_SENTENCE_LENGTH);
     // Read the tsrb buffer
     msg_t msg;
     if (msg_try_receive(&msg) == -1) {
@@ -227,6 +227,53 @@ bool get_nmea_rmc_json(char *json)
     strcat(json, "\t\"speed\": ");
     memset(buffer, 0, AUX_BUF_SIZE);
     sprintf(buffer, "%f\n", minmea_tofloat(&_rmc.speed));
+    strcat(json, buffer);
+
+    strcat(json, "}");
+    return true;
+}
+
+bool get_nmea_gga_json(char *json)
+{
+    char buffer[AUX_BUF_SIZE];
+    memset(buffer, 0, AUX_BUF_SIZE);
+
+    strcat(json, "{\n");
+
+    // Get time
+    strcat(json, "\t\"time\": ");
+    sprintf(buffer, "%02d:%02d:%02d.%02d,\n", _gga.time.hours, _gga.time.minutes, _gga.time.seconds, _gga.time.microseconds);
+    strcat(json, buffer);
+
+    // latitude
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"latitude\": ");
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_gga.latitude));
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"longitude\": ");
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_gga.longitude));
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"altitude\": ");
+    sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.altitude));
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"a units\": ");
+    sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"height\": ");
+    sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.height));
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"h units\": ");
+    sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
     strcat(json, buffer);
 
     strcat(json, "}");

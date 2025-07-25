@@ -6,6 +6,8 @@
 
 #define STR_LEN 512
 
+char str[STR_LEN];
+
 struct data {
     uint8_t *_data;
 };
@@ -22,7 +24,6 @@ bool test_init_gps_ublox(void *arg)
 {
     (void) arg;
 
-    char str[STR_LEN];
     memset(str, 0, STR_LEN);
 
     // No device connected for the tests, it should return false
@@ -36,7 +37,6 @@ bool test_parse_nmea_messages_empty_buffer(void *arg)
 {
     (void) arg;
 
-    char str[STR_LEN];
     memset(str, 0, STR_LEN);
 
     bool ret = parse_nmea_message();
@@ -54,7 +54,6 @@ bool test_parse_nmea_messages_no_cr_lf(void *arg)
         gps_cb(NULL, (uint8_t)line[i]);
     }
 
-    char str[STR_LEN];
     memset(str, 0, STR_LEN);
     bool ret = parse_nmea_message();
     bool passed = true;
@@ -76,7 +75,6 @@ bool test_get_rmc_json(void *arg)
         gps_cb(NULL, (uint8_t)line[i]);
     }
 
-    char str[STR_LEN];
     memset(str, 0, STR_LEN);
     bool ret = parse_nmea_message();
 
@@ -102,8 +100,53 @@ bool test_get_rmc_json(void *arg)
     if (!passed) {
         printf("%s\n", str);
     }
-
     clear_buffer();
+
+    return passed;
+}
+
+bool test_get_gga_json(void *arg)
+{
+    (void) arg;
+    char line[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,01,0000*6E\r\n";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+
+    memset(str, 0, STR_LEN);
+    bool ret = parse_nmea_message();
+
+    bool passed = true;
+    passed = check_condition(passed, ret, "Correctly parsed GGA sentence\0", str);
+
+    char json[256];
+    memset(json, 0, 256);
+    ret = get_nmea_gga_json(json);
+
+    passed = check_condition(passed, ret, "Json parsed correctly", str);
+    ret = strstr(json, "{");
+    passed = check_condition(passed, ret, "json contains {", str);
+    ret = strstr(json, "}");
+    passed = check_condition(passed, ret, "json contains }", str);
+    ret = strstr(json, "\"time\": 11:57:39.00");
+    passed = check_condition(passed, ret, "json containes \"time\": 11:57:39.00", str);
+    ret = strstr(json, "\"latitude\": ");
+    passed = check_condition(passed, ret, "json contains \"latitude\": 41.980763", str);
+    ret = strstr(json, "\"longitude\": ");
+    passed = check_condition(passed, ret, "json contains \"longitude\": ", str);
+    ret = strstr(json, "\"altitude\": ");
+    passed = check_condition(passed, ret, "json contains \"altitude\": ", str);
+    ret = strstr(json, "\"a units\": ");
+    passed = check_condition(passed, ret, "json contains \"a units\": ", str);
+    ret = strstr(json, "\"height\": ");
+    passed = check_condition(passed, ret, "json contains \"height\": ", str);
+    ret = strstr(json, "\"h units\": ");
+    passed = check_condition(passed, ret, "json contains \"h units\": ", str);
+
+    if (!passed) {
+        printf("%s\n", str);
+    }
+
     return passed;
 }
 
@@ -120,6 +163,7 @@ void tests(void)
     cunit_add_test(tests, test_parse_nmea_messages_empty_buffer, "parse_nmea_messages");
     cunit_add_test(tests, test_parse_nmea_messages_no_cr_lf, "parse_nmea_messages");
     cunit_add_test(tests, test_get_rmc_json, "get_nmea_rmc_json");
+    cunit_add_test(tests, test_get_gga_json, "get_nmea_gga_json");
 
     cunit_execute_tests(tests);
 
