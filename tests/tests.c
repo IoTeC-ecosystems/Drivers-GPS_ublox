@@ -5,8 +5,10 @@
 #include "cUnit.h"
 
 #define STR_LEN 512
+#define JSON_LEN 256
 
 char str[STR_LEN];
+char json[JSON_LEN];
 
 struct data {
     uint8_t *_data;
@@ -81,8 +83,7 @@ bool test_get_rmc_json(void *arg)
     bool passed = true;
     passed = check_condition(passed, ret, "Correctly parsed RMC sentence.\0", str);
 
-    char json[256];
-    memset(json, 0, 256);
+    memset(json, 0, JSON_LEN);
     ret = get_nmea_rmc_json(json);
 
     passed = check_condition(passed, ret, "Json correctly parsed", str);
@@ -119,8 +120,7 @@ bool test_get_gga_json(void *arg)
     bool passed = true;
     passed = check_condition(passed, ret, "Correctly parsed GGA sentence\0", str);
 
-    char json[256];
-    memset(json, 0, 256);
+    memset(json, 0, JSON_LEN);
     ret = get_nmea_gga_json(json);
 
     passed = check_condition(passed, ret, "Json parsed correctly", str);
@@ -150,6 +150,42 @@ bool test_get_gga_json(void *arg)
     return passed;
 }
 
+bool test_get_gll_json(void *arg)
+{
+    (void) arg;
+    char line[] = "$GPGLL,4112.26,N,11332.22,E,213276,A*29\r\n\0";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+
+    memset(str, 0, STR_LEN);
+    bool ret = parse_nmea_message();
+
+    bool passed = true;
+    passed = check_condition(passed, ret, "Correclty parsed GLL sentence", str);
+
+    memset(json, 0, JSON_LEN);
+    ret = get_nmea_gll_json(json);
+
+    passed = check_condition(passed, ret, "Json parsed correctly", str);
+    ret = strstr(json, "{");
+    passed = check_condition(passed, ret, "json contains {", str);
+    ret = strstr(json, "}");
+    passed = check_condition(passed, ret, "json contains }", str);
+    ret = strstr(json, "\"time\":");
+    passed = check_condition(passed, ret, "json containes \"time\":", str);
+    ret = strstr(json, "\"latitude\":");
+    passed = check_condition(passed, ret, "json containes \"longitude\":", str);
+    ret = strstr(json, "\"latitude\":");
+    passed = check_condition(passed, ret, "json containes \"latitude\":", str);
+
+    if (!passed) {
+        printf("%s\n", str);
+    }
+
+    return passed;
+}
+
 void tests(void)
 {
     printf("Testing the ublox driver.\n");
@@ -164,6 +200,7 @@ void tests(void)
     cunit_add_test(tests, test_parse_nmea_messages_no_cr_lf, "parse_nmea_messages");
     cunit_add_test(tests, test_get_rmc_json, "get_nmea_rmc_json");
     cunit_add_test(tests, test_get_gga_json, "get_nmea_gga_json");
+    cunit_add_test(tests, test_get_gll_json, "get_nmea_gll_json");
 
     cunit_execute_tests(tests);
 

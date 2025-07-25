@@ -40,6 +40,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate);
 bool parse_nmea_message(void);
 bool get_nmea_rmc_json(char *json);
 bool get_nmea_gga_json(char *json);
+bool get_nmea_gll_json(char *json);
 
 void clear_buffer(void);
 

@@ -193,14 +193,15 @@ bool parse_nmea_message(void)
 
 bool get_nmea_rmc_json(char *json)
 {
+    char buffer[AUX_BUF_SIZE];
+    memset(buffer, 0, AUX_BUF_SIZE);
+
     strcat(json, "{\n");
 
     // Get datetime from rmc sentence
     strcat(json, "\t\"datetime\": ");
     struct tm tm;
     int ret = minmea_getdatetime(&tm, &_rmc.date, &_rmc.time);
-    char buffer[AUX_BUF_SIZE];
-    memset(buffer, 0, AUX_BUF_SIZE);
     // Datetime format: dd/mm/yyyy HH:mm
     sprintf(buffer, "%02d/%02d/%4d %2d:%02d,\n", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_sec);
     strcat(json, buffer);
@@ -277,6 +278,32 @@ bool get_nmea_gga_json(char *json)
     strcat(json, buffer);
 
     strcat(json, "}");
+    return true;
+}
+
+bool get_nmea_gll_json(char *json)
+{
+    char buffer[AUX_BUF_SIZE];
+    memset(buffer, 0, AUX_BUF_SIZE);
+
+    strcat(json, "{\n");
+
+    strcat(json,"\t\"time\": ");
+    sprintf(buffer, "%02d:%02d:%02d.%02d,\n", _gga.time.hours, _gga.time.minutes, _gga.time.seconds, _gga.time.microseconds);
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"latitude\": ");
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_gga.latitude));
+    strcat(json, buffer);
+
+    memset(buffer, 0, AUX_BUF_SIZE);
+    strcat(json, "\t\"longitude\": ");
+    sprintf(buffer, "%f,\n", minmea_tocoord(&_gga.longitude));
+    strcat(json, buffer);
+
+    strcat(json, "}");
+
     return true;
 }
 
