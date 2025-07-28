@@ -68,6 +68,209 @@ bool test_parse_nmea_messages_no_cr_lf(void *arg)
     return passed;
 }
 
+bool test_parse_nmea_rmc_imcomplete(void *arg)
+{
+    // Is able to parse incomplete nmea sentences
+    (void) arg;
+    char line[] = "$GPRMC,123519,A,4807.083,N,01131.000,E,022.4,,230394,003.1,W*4C\r\n\0";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+
+    memset(str, 0, STR_LEN);
+    bool ret = parse_nmea_message();
+
+    bool passed = true;
+    passed = check_condition(passed, ret, "Correctly parsed RMC sentence with no course.\0", str);
+
+    char line2[] = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,,*11\r\n\0";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Correctly parsed RMC sentence with no variation.\0", str);
+
+    char line3[] = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,,230394,,*37\r\n\0";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Correctly parsed RMC sentence with no course and no variation\0", str);
+
+    return passed;
+}
+
+bool test_parse_nmea_rmc_incomplete_invalid(void *arg)
+{
+    (void) arg;
+    // No time
+    char line[] = "$GPRMC,,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*67\r\n\0";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+    int ret = parse_nmea_message();
+    bool passed = true;
+    memset(str, 0, STR_LEN);
+    passed = check_condition(passed, !ret, "Parse RMC with no time\0", str);
+
+    char line2[] = "$GPRMC,123519,A,,,01131.000,E,022.4,084.4,230394,003.1,W*3A\r\n\0";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse RMC with no latitude\0", str);
+
+    char line3[] = "$GPRMC,123519,A,4807.038,N,,,022.4,084.4,230394,003.1,W*03\r\n\0";
+    for (uint8_t i = 0; i < strlen(line3); i++) {
+        gps_cb(NULL, (uint8_t)line3[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse RMC with no longitude\0", str);
+
+    char line4[] = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,,003.1,W*65\r\n\0";
+    for (uint8_t i = 0; i < strlen(line4); i++) {
+        gps_cb(NULL, (uint8_t)line4[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse RMC with no date\0", str);
+
+    if (!passed) {
+        printf("%s\n", str);
+    }
+
+    return passed;
+}
+
+bool test_get_nmea_gga_incomplete_valid(void *arg)
+{
+    (void) arg;
+
+    char line[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,,13,0.9,255.747,M,-32.00,M,01,0000*5A\r\n";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+
+    memset(str, 0, STR_LEN);
+    bool ret = parse_nmea_message();
+    bool passed = true;
+    passed = check_condition(passed, ret, "Parse GGA with no gps quality indicator", str);
+
+    char line2[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,,0.9,255.747,M,-32.00,M,01,0000*6C\r\n";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no number of satellites", str);
+
+    char line3[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,,255.747,M,-32.00,M,01,0000*49\r\n";
+    for (uint8_t i = 0; i < strlen(line3); i++) {
+        gps_cb(NULL, (uint8_t)line3[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no HDOP", str);
+
+    char line4[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,,,-32.00,M,01,0000*0B\r\n";
+    for (uint8_t i = 0; i < strlen(line4); i++) {
+        gps_cb(NULL, (uint8_t)line4[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no orthomeric height", str);
+
+    char line5[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,,,01,0000*21\r\n";
+    for (uint8_t i = 0; i < strlen(line5); i++) {
+        gps_cb(NULL, (uint8_t)line5[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no geoid separation", str);
+
+    char line6[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,,0000*6F\r\n";
+    for (uint8_t i = 0; i < strlen(line6); i++) {
+        gps_cb(NULL, (uint8_t)line6[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no diferential gps", str);
+
+    char line7[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,01,*6E\r\n";
+    for (uint8_t i = 0; i < strlen(line7); i++) {
+        gps_cb(NULL, (uint8_t)line7[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, ret, "Parse GGA with no diferential gps", str);
+
+    if (!passed) {
+        printf("%s\n", str);
+    }
+    return passed;
+}
+
+bool test_get_nmea_gga_incomplete_invalid(void *arg)
+{
+    (void) arg;
+    memset(str, 0, STR_LEN);
+    bool passed = true;
+
+    char line[] = "$GPGGA,,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,01,0000*48\r\n";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+    bool ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GGA with no UTC time", str);
+
+    char line2[] = "$GPGGA,115739.00,,,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,01,0000*3D\r\n";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GGA with no latitude", str);
+
+    char line3[] = "$GPGGA,115739.00,4158.8441367,N,,,4,13,0.9,255.747,M,-32.00,M,01,0000*19\r\n";
+    for (uint8_t i = 0; i < strlen(line3); i++) {
+        gps_cb(NULL, (uint8_t)line3[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GGA with no longitude", str);
+
+    if (!passed) {
+        printf("%s", str);
+    }
+    //char line[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,255.747,M,-32.00,M,01,0000*6E\r\n";
+    return passed;
+}
+
+bool test_get_gll_incomplete_invalid(void *arg)
+{
+    (void) arg;
+    memset(str, 0, STR_LEN);
+    bool passed = true;
+    char line[] = "$GPGLL,,,11332.22,E,213276,A*4B\r\n\0";
+    for (uint8_t i = 0; i < strlen(line); i++) {
+        gps_cb(NULL, (uint8_t)line[i]);
+    }
+    bool ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GLL with no longitude", str);
+
+    char line2[] = "$GPGLL,4112.26,N,,,213276,A*70\r\n\0";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GLL with no latitude", str);
+
+    char line3[] = "$GPGLL,4112.26,N,11332.22,E,,A*2A\r\n\0";
+    for (uint8_t i = 0; i < strlen(line3); i++) {
+        gps_cb(NULL, (uint8_t)line3[i]);
+    }
+    ret = parse_nmea_message();
+    passed = check_condition(passed, !ret, "Parse GLL with no time", str);
+
+    if (!passed) {
+        printf("%s", str);
+    }
+
+    //char line[] = "$GPGLL,4112.26,N,11332.22,E,213276,A*29\r\n\0";
+    return passed;
+}
+
 bool test_get_rmc_json(void *arg)
 {
     (void) arg;
@@ -198,6 +401,12 @@ void tests(void)
     cunit_add_test(tests, test_init_gps_ublox, "init_gps_ublox");
     cunit_add_test(tests, test_parse_nmea_messages_empty_buffer, "parse_nmea_messages");
     cunit_add_test(tests, test_parse_nmea_messages_no_cr_lf, "parse_nmea_messages");
+    cunit_add_test(tests, test_parse_nmea_rmc_imcomplete, "parse_nmea_messages rmc incomplete valid");
+    cunit_add_test(tests, test_parse_nmea_rmc_incomplete_invalid, "parse_nmea rmc incomplete invalid");
+    cunit_add_test(tests, test_get_nmea_gga_incomplete_valid, "parse_nmea_gga imcomplete valid");
+    cunit_add_test(tests, test_get_nmea_gga_incomplete_invalid, "parse_nmea_gga incomplete invalid");
+    /* There is only one posible GLL valid sentence */
+    cunit_add_test(tests, test_get_gll_incomplete_invalid, "parse_nmea_gll incomplete invalid");
     cunit_add_test(tests, test_get_rmc_json, "get_nmea_rmc_json");
     cunit_add_test(tests, test_get_gga_json, "get_nmea_gga_json");
     cunit_add_test(tests, test_get_gll_json, "get_nmea_gll_json");

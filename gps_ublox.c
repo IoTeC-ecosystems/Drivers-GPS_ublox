@@ -173,15 +173,37 @@ bool parse_nmea_message(void)
     switch (id) {
         case MINMEA_SENTENCE_GLL:
             if (!minmea_parse_gll(&_gll, line)) can_parse = false;
+            if (_gll.time.hours == -1 || _gll.time.minutes == -1 || _gll.time.seconds == -1 || _gll.time.microseconds == -1) {
+                can_parse = false;
+            }
+            if (_gll.latitude.value == 0 || _gll.longitude.value == 0) {
+                can_parse = false;
+            }
             break;
         case MINMEA_SENTENCE_RMC:
+            memset((void *)&_rmc, 0, sizeof(struct minmea_sentence_rmc));
             if (!minmea_parse_rmc(&_rmc, line)) can_parse = false;
+            if (_rmc.time.hours == -1 || _rmc.time.minutes == -1 || _rmc.time.seconds == -1 || _rmc.time.microseconds == 1) {
+                can_parse = false;
+            }
+            if (_rmc.date.day == -1 || _rmc.date.month == 1 || _rmc.date.year == -1) {
+                can_parse = false;
+            }
+            if (_rmc.latitude.value == 0 || _rmc.longitude.value == 0) {
+                can_parse = false;
+            }
             break;
         case MINMEA_SENTENCE_VTG:
             if (!minmea_parse_vtg(&_vtg, line)) can_parse = false;
             break;
         case MINMEA_SENTENCE_GGA:
             if (!minmea_parse_gga(&_gga, line)) can_parse = false;
+            if (_gga.time.hours == -1 || _gga.time.minutes == -1 || _gga.time.seconds == -1 || _gga.time.microseconds == -1) {
+                can_parse = false;
+            }
+            if (_gga.latitude.value == 0 || _gga.longitude.value == 0) {
+                can_parse = false;
+            }
             break;
         default:
             // Ignore any other sentence
