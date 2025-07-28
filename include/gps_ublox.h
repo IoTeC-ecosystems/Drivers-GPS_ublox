@@ -32,7 +32,6 @@ static msg_t q[MSG_QUEUE_SIZE];
 // For nmea messages
 static struct minmea_sentence_gll _gll;
 static struct minmea_sentence_rmc _rmc;
-static struct minmea_sentence_vtg _vtg;
 static struct minmea_sentence_gga _gga;
 
 void gps_cb(void *arg, uint8_t data);

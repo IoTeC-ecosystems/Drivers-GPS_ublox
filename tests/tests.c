@@ -267,7 +267,6 @@ bool test_get_gll_incomplete_invalid(void *arg)
         printf("%s", str);
     }
 
-    //char line[] = "$GPGLL,4112.26,N,11332.22,E,213276,A*29\r\n\0";
     return passed;
 }
 

@@ -33,7 +33,6 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     // Clear buffer and variables
     memset((void *)&_gll, 0, sizeof(_gll));
     memset((void *)&_rmc, 0, sizeof(_rmc));
-    memset((void *)&_vtg, 0, sizeof(_vtg));
     memset((void *)&_gga, 0, sizeof(_gga));
     memset((void *)&buffer, 0, strlen((char *)buffer));
 
@@ -104,6 +103,7 @@ bool init_gps_ublox(uart_t _dev, uint32_t baud, uint16_t rate)
     uint8_t messages[][2] = {
         {0xF0, 0x03},   // GSV
         {0xF0, 0x02},   // GSA
+        {0xF0, 0x05},   // VTG
     };
     uint8_t cfg_msg[] = {
         0xB5, 0x62, 0x06, 0x01, 0x03, 0x00,
@@ -192,9 +192,6 @@ bool parse_nmea_message(void)
             if (_rmc.latitude.value == 0 || _rmc.longitude.value == 0) {
                 can_parse = false;
             }
-            break;
-        case MINMEA_SENTENCE_VTG:
-            if (!minmea_parse_vtg(&_vtg, line)) can_parse = false;
             break;
         case MINMEA_SENTENCE_GGA:
             if (!minmea_parse_gga(&_gga, line)) can_parse = false;
