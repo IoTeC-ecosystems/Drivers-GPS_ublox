@@ -226,10 +226,12 @@ bool get_nmea_rmc_json(char *json)
     strcat(json, buffer);
 
     // Get course
-    strcat(json, "\t\"course\": ");
-    memset(buffer, 0, AUX_BUF_SIZE);
-    sprintf(buffer, "%f,\n", minmea_tofloat(&_rmc.course));
-    strcat(json, buffer);
+    if (_rmc.course.value != 0) {
+        strcat(json, "\t\"course\": ");
+        memset(buffer, 0, AUX_BUF_SIZE);
+        sprintf(buffer, "%f,\n", minmea_tofloat(&_rmc.course));
+        strcat(json, buffer);
+    }
 
     // Get latitude
     strcat(json, "\t\"latitude\": ");
@@ -276,25 +278,29 @@ bool get_nmea_gga_json(char *json)
     sprintf(buffer, "%f,\n", minmea_tocoord(&_gga.longitude));
     strcat(json, buffer);
 
-    memset(buffer, 0, AUX_BUF_SIZE);
-    strcat(json, "\t\"altitude\": ");
-    sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.altitude));
-    strcat(json, buffer);
+    if (_gga.altitude.value != 0) {
+        memset(buffer, 0, AUX_BUF_SIZE);
+        strcat(json, "\t\"altitude\": ");
+        sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.altitude));
+        strcat(json, buffer);
 
-    memset(buffer, 0, AUX_BUF_SIZE);
-    strcat(json, "\t\"a units\": ");
-    sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
-    strcat(json, buffer);
+        memset(buffer, 0, AUX_BUF_SIZE);
+        strcat(json, "\t\"a units\": ");
+        sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
+        strcat(json, buffer);
+    }
 
-    memset(buffer, 0, AUX_BUF_SIZE);
-    strcat(json, "\t\"height\": ");
-    sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.height));
-    strcat(json, buffer);
+    if (_gga.height.value != 0) {
+        memset(buffer, 0, AUX_BUF_SIZE);
+        strcat(json, "\t\"height\": ");
+        sprintf(buffer, "%f,\n", minmea_tofloat(&_gga.height));
+        strcat(json, buffer);
 
-    memset(buffer, 0, AUX_BUF_SIZE);
-    strcat(json, "\t\"h units\": ");
-    sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
-    strcat(json, buffer);
+        memset(buffer, 0, AUX_BUF_SIZE);
+        strcat(json, "\t\"h units\": ");
+        sprintf(buffer, "\"%c\",\n", _gga.altitude_units);
+        strcat(json, buffer);
+    }
 
     strcat(json, "}");
     return true;

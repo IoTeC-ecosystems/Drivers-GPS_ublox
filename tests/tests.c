@@ -299,6 +299,18 @@ bool test_get_rmc_json(void *arg)
     passed = check_condition(passed, ret, "Json contains \"longitude\" field", str);
     ret = strstr(json, "speed");
     passed = check_condition(passed, ret, "Json contains \"speed\" field", str);
+    clear_buffer();
+
+    // Get the json for RMC sentence with no course variable
+    char line2[] = "$GPRMC,123519,A,4807.083,N,01131.000,E,022.4,,230394,003.1,W*4C\r\n\0";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    memset(json, 0, JSON_LEN);
+    ret = get_nmea_rmc_json(json);
+    ret = strstr(json, "course");
+    passed = check_condition(passed, !ret, "Json does not contain \"course\" field", str);
 
     if (!passed) {
         printf("%s\n", str);
@@ -344,6 +356,19 @@ bool test_get_gga_json(void *arg)
     passed = check_condition(passed, ret, "json contains \"height\": ", str);
     ret = strstr(json, "\"h units\": ");
     passed = check_condition(passed, ret, "json contains \"h units\": ", str);
+
+    // With no height and altitude
+    char line2[] = "$GPGGA,115739.00,4158.8441367,N,09147.4416929,W,4,13,0.9,,,,,01,0000*44\r\n";
+    for (uint8_t i = 0; i < strlen(line2); i++) {
+        gps_cb(NULL, (uint8_t)line2[i]);
+    }
+    ret = parse_nmea_message();
+    memset(json, 0, JSON_LEN);
+    ret = get_nmea_gga_json(json);
+    ret = strstr(json, "altitude");
+    passed = check_condition(passed, !ret, "Json does not contain \"altitude\" and \"a units\" field", str);
+    ret = strstr(json, "height");
+    passed = check_condition(passed, !ret, "Json does not contain \"height\" and \"h units\" field", str);
 
     if (!passed) {
         printf("%s\n", str);
